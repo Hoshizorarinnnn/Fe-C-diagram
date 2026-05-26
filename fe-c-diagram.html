@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Iron-Carbon (Fe-C) Phase Diagram Calculator</title>
+    <style>
+        :root {
+            --primary: #2C3E50;
+            --secondary: #34495E;
+            --accent: #3498DB;
+            --background: #ECF0F1;
+            --white: #FFFFFF;
+            --text: #333333;
+            --border: #BDC3C7;
+            --card-bg: #F8F9F9;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--background);
+            color: var(--text);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+        }
+
+        .container {
+            background-color: var(--white);
+            max-width: 900px;
+            width: 100%;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 8px 16px rgba(0,0,0,0.1);
+        }
+
+        h1 {
+            color: var(--primary);
+            text-align: center;
+            margin-bottom: 5px;
+        }
+
+        p.subtitle {
+            text-align: center;
+            color: var(--secondary);
+            margin-bottom: 30px;
+            font-size: 0.95em;
+        }
+
+        .input-section {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            justify-content: center;
+            margin-bottom: 30px;
+            padding: 20px;
+            background-color: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+        }
+
+        .input-group {
+            display: flex;
+            flex-direction: column;
+            width: 250px;
+        }
+
+        label {
+            font-weight: bold;
+            margin-bottom: 8px;
+            color: var(--primary);
+        }
+
+        input {
+            padding: 10px;
+            font-size: 16px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            outline: none;
+            transition: border-color 0.3s;
+        }
+
+        input:focus {
+            border-color: var(--accent);
+        }
+
+        button {
+            padding: 10px 24px;
+            font-size: 16px;
+            font-weight: bold;
+            color: var(--white);
+            background-color: var(--accent);
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+            align-self: flex-end;
+            height: 41px;
+        }
+
+        button:hover {
+            background-color: #2980B9;
+        }
+
+        .results-section {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            display: none;
+            margin-bottom: 30px;
+        }
+
+        .result-card {
+            background-color: var(--card-bg);
+            border-left: 5px solid var(--accent);
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        }
+
+        .result-card h3 {
+            margin-top: 0;
+            color: var(--primary);
+            font-size: 1.1em;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 8px;
+            margin-bottom: 15px;
+        }
+
+        .result-card p {
+            margin: 8px 0;
+            line-height: 1.5;
+        }
+
+        .error {
+            color: #E74C3C;
+            text-align: center;
+            font-weight: bold;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .diagram-section {
+            text-align: center;
+            margin-top: 20px;
+            border-top: 2px dashed var(--border);
+            padding-top: 20px;
+        }
+
+        .diagram-container {
+            width: 100%;
+            overflow-x: auto; /* Allows scrolling on small screens */
+            display: flex;
+            justify-content: center;
+        }
+
+        canvas {
+            background-color: #ffffff;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.05);
+            max-width: 100%;
+            height: auto;
+        }
+    </style>
+</head>
+<body onload="drawDiagram(null, null)">
+
+<div class="container">
+    <h1>Fe-C Phase Diagram Calculator</h1>
+    <p class="subtitle">Calculate equilibrium phases, fractions, and estimate properties (Up to 6.67 wt% C)</p>
+
+    <div class="error" id="errorMsg"></div>
+
+    <div class="input-section">
+        <div class="input-group">
+            <label for="carbon">Carbon Composition (C₀) [wt%]</label>
+            <input type="number" id="carbon" min="0" max="6.67" step="0.01" placeholder="e.g., 0.76">
+        </div>
+        <div class="input-group">
+            <label for="temp">Temperature (T) [°C]</label>
+            <input type="number" id="temp" min="0" max="1600" step="1" placeholder="e.g., 700">
+        </div>
+        <button onclick="calculatePhase()">Calculate</button>
+    </div>
+
+    <!-- Results Section -->
+    <div class="results-section" id="resultsSection">
+        <div class="result-card">
+            <h3>1. Phase Region & Description</h3>
+            <p id="outRegion" style="font-weight:bold; font-size: 1.1em; color: var(--accent);"></p>
+            <p id="outDesc"></p>
+        </div>
+        <div class="result-card">
+            <h3>2. Phase Compositions</h3>
+            <p id="outComp"></p>
+        </div>
+        <div class="result-card">
+            <h3>3. Phase Fractions (Lever Rule)</h3>
+            <p id="outFrac"></p>
+        </div>
+        <div class="result-card">
+            <h3>4. Estimated Mechanical Properties</h3>
+            <p style="font-size: 0.85em; color: gray;">*Based on room-temperature annealed microstructure for the given C%.</p>
+            <p id="outMech"></p>
+        </div>
+    </div>
+
+    <!-- Diagram Section -->
+    <div class="diagram-section">
+        <h3 style="color: var(--primary);">Simplified Fe-C Phase Diagram</h3>
+        <p style="font-size: 0.9em; color: gray; margin-bottom: 15px;">Your selected coordinate will be highlighted as a red dot.</p>
+        <div class="diagram-container">
+            <canvas id="phaseDiagram" width="800" height="500"></canvas>
+        </div>
+    </div>
+</div>
+
+<script>
+    function calculatePhase() {
+        const C = parseFloat(document.getElementById('carbon').value);
+        const T = parseFloat(document.getElementById('temp').value);
+        const errorMsg = document.getElementById('errorMsg');
+        const resultsSection = document.getElementById('resultsSection');
+
+        if (isNaN(C) || C < 0 || C > 6.67) {
+            errorMsg.innerText = "Please enter a valid Carbon composition between 0 and 6.67 wt%.";
+            errorMsg.style.display = "block";
+            return;
+        }
+        if (isNaN(T) || T < 0 || T > 1600) {
+            errorMsg.innerText = "Please enter a valid Temperature between 0 and 1600 °C.";
+            errorMsg.style.display = "block";
+            return;
+        }
+
+        errorMsg.style.display = "none";
+
+        let region = "", desc = "", phase1 = "", phase2 = "";
+        let c1 = 0, c2 = 0, singlePhase = false;
+        let C_alpha = 0, C_gamma_L = 0, C_gamma_R = 0, C_sol = 0, C_liq1 = 0, C_liq2 = 0;
+
+        // --- 1. Identify Phase Region & Boundaries ---
+        if (T < 727) {
+            C_alpha = 0.022 * (T / 727); 
+            if (C <= C_alpha) {
+                region = "α (Ferrite)"; desc = "α is Ferrite, an interstitial solid solution of carbon in BCC iron. Soft and ductile.";
+                singlePhase = true; c1 = C;
+            } else {
+                region = "α + Fe<sub>3</sub>C"; desc = "Mixture of Ferrite (α) and Cementite (Fe<sub>3</sub>C). Resolves to Pearlite and proeutectoid phase at room temp.";
+                singlePhase = false; phase1 = "α"; phase2 = "Fe<sub>3</sub>C"; c1 = C_alpha; c2 = 6.67;
+            }
+        } else if (T >= 727 && T < 1147) {
+            C_alpha = (T <= 912) ? 0.022 * ((912 - T) / (912 - 727)) : 0; 
+            C_gamma_L = (T <= 912) ? 0.76 * ((912 - T) / (912 - 727)) : 0; 
+            C_gamma_R = 0.76 + (2.14 - 0.76) * ((T - 727) / (1147 - 727)); 
+
+            if (C <= C_alpha) {
+                region = "α (Ferrite)"; desc = "α is Ferrite, an interstitial solid solution of carbon in BCC iron."; singlePhase = true; c1 = C;
+            } else if (C > C_alpha && C < C_gamma_L) {
+                region = "α + γ"; desc = "Mixture of solid Ferrite (α) and Austenite (γ).";
+                singlePhase = false; phase1 = "α"; phase2 = "γ"; c1 = C_alpha; c2 = C_gamma_L;
+            } else if (C >= C_gamma_L && C <= C_gamma_R) {
+                region = "γ (Austenite)"; desc = "γ is Austenite, an interstitial solid solution of C in FCC iron. Highly formable."; singlePhase = true; c1 = C;
+            } else {
+                region = "γ + Fe<sub>3</sub>C"; desc = "Mixture of solid Austenite (γ) and Cementite (Fe<sub>3</sub>C).";
+                singlePhase = false; phase1 = "γ"; phase2 = "Fe<sub>3</sub>C"; c1 = C_gamma_R; c2 = 6.67;
+            }
+        } else if (T >= 1147 && T < 1493) {
+            C_sol = 2.14 - (2.14 - 0.17) * ((T - 1147) / (1493 - 1147)); 
+            C_liq1 = 4.3 - (4.3 - 0.53) * ((T - 1147) / (1493 - 1147)); 
+            C_liq2 = (T <= 1227) ? 4.3 + (6.67 - 4.3) * ((T - 1147) / (1227 - 1147)) : 6.67; 
+
+            if (C <= C_sol) {
+                region = "γ (Austenite)"; desc = "γ is Austenite, a solid solution of carbon in FCC iron."; singlePhase = true; c1 = C;
+            } else if (C > C_sol && C < C_liq1) {
+                region = "γ + Liquid"; desc = "Mixture of solid Austenite (γ) and Liquid molten alloy."; singlePhase = false; phase1 = "γ"; phase2 = "Liquid"; c1 = C_sol; c2 = C_liq1;
+            } else if (C >= C_liq1 && C <= C_liq2) {
+                region = "Liquid"; desc = "Molten Iron-Carbon liquid solution."; singlePhase = true; c1 = C;
+            } else {
+                region = "Liquid + Fe<sub>3</sub>C"; desc = "Mixture of Liquid alloy and solid Cementite (Fe<sub>3</sub>C)."; singlePhase = false; phase1 = "Liquid"; phase2 = "Fe<sub>3</sub>C"; c1 = C_liq2; c2 = 6.67;
+            }
+        } else if (T >= 1493 && T <= 1538) {
+            C_sol = 0.17 * ((1538 - T) / (1538 - 1493));
+            C_liq1 = 0.53 * ((1538 - T) / (1538 - 1493));
+
+            if (C <= C_sol) {
+                region = "Solid (δ/γ)"; desc = "High temperature solid iron phase."; singlePhase = true; c1 = C;
+            } else if (C > C_sol && C < C_liq1) {
+                region = "Solid + Liquid"; desc = "Mixture of high temperature solid iron and Liquid molten alloy."; singlePhase = false; phase1 = "Solid"; phase2 = "Liquid"; c1 = C_sol; c2 = C_liq1;
+            } else {
+                region = "Liquid"; desc = "Molten Iron-Carbon alloy."; singlePhase = true; c1 = C;
+            }
+        } else {
+            region = "Liquid"; desc = "Fully molten Iron-Carbon liquid solution."; singlePhase = true; c1 = C;
+        }
+
+        // --- 2 & 3. Compositions & Fractions ---
+        let phaseCompHTML = "", phaseFracHTML = "";
+        if (singlePhase) {
+            phaseCompHTML = `Single phase system. <br><strong>C<sub>${region}</sub> = ${C.toFixed(2)} wt% C</strong>`;
+            phaseFracHTML = `<strong>W<sub>${region}</sub> = 100%</strong>`;
+        } else {
+            phaseCompHTML = `<strong>C<sub>${phase1}</sub> = ${c1.toFixed(3)} wt% C</strong><br>
+                             <strong>C<sub>${phase2}</sub> = ${c2.toFixed(3)} wt% C</strong>`;
+            let w2 = ((C - c1) / (c2 - c1)) * 100;
+            let w1 = ((c2 - C) / (c2 - c1)) * 100;
+            phaseFracHTML = `<strong>W<sub>${phase1}</sub></strong> = <strong>${w1.toFixed(1)}%</strong><br>
+                             <strong>W<sub>${phase2}</sub></strong> = <strong>${w2.toFixed(1)}%</strong>`;
+        }
+
+        // --- 4. Mechanical Properties ---
+        let mechPropsHTML = "";
+        if (C <= 0.76) {
+            let ys = 150 + (450 - 150) * (C / 0.76); let ts = 250 + (750 - 250) * (C / 0.76);
+            mechPropsHTML = `<strong>Yield Strength:</strong> ≈ ${ys.toFixed(0)} MPa<br><strong>Tensile Strength:</strong> ≈ ${ts.toFixed(0)} MPa<br><em>Microstructure: Hypoeutectoid</em>`;
+        } else if (C > 0.76 && C <= 2.14) {
+            let ys = 450 + 100 * ((C - 0.76) / (2.14 - 0.76)); let ts = 750 + 100 * ((C - 0.76) / (2.14 - 0.76));
+            mechPropsHTML = `<strong>Yield Strength:</strong> ≈ ${ys.toFixed(0)} MPa<br><strong>Tensile Strength:</strong> ≈ ${ts.toFixed(0)} MPa<br><em>Microstructure: Hypereutectoid</em>`;
+        } else {
+            mechPropsHTML = `<strong>Tensile Strength:</strong> ≈ 200-400 MPa<br><strong>Yield Strength:</strong> N/A (Brittle)<br><em>Microstructure: Cast Iron</em>`;
+        }
+
+        document.getElementById('outRegion').innerHTML = region;
+        document.getElementById('outDesc').innerHTML = desc;
+        document.getElementById('outComp').innerHTML = phaseCompHTML;
+        document.getElementById('outFrac').innerHTML = phaseFracHTML;
+        document.getElementById('outMech').innerHTML = mechPropsHTML;
+        
+        resultsSection.style.display = "grid";
+
+        // Update the visual diagram
+        drawDiagram(C, T);
+    }
+
+    // Canvas Drawing Function
+    function drawDiagram(userC, userT) {
+        const canvas = document.getElementById('phaseDiagram');
+        const ctx = canvas.getContext('2d');
+        const W = canvas.width;
+        const H = canvas.height;
+
+        const padLeft = 60, padRight = 30, padTop = 30, padBottom = 50;
+        const drawW = W - padLeft - padRight;
+        const drawH = H - padTop - padBottom;
+
+        const maxC = 6.67;
+        const maxT = 1600;
+
+        // Map data coords to canvas pixels
+        function x(c) { return padLeft + (c / maxC) * drawW; }
+        function y(t) { return H - padBottom - (t / maxT) * drawH; }
+
+        ctx.clearRect(0, 0, W, H);
+
+        // Draw Axes
+        ctx.beginPath();
+        ctx.moveTo(x(0), y(1600)); ctx.lineTo(x(0), y(0)); // Y-axis
+        ctx.lineTo(x(6.67), y(0)); // X-axis
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = '#333';
+        ctx.stroke();
+
+        // Axis Labels
+        ctx.fillStyle = '#333';
+        ctx.font = '14px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText('Carbon Content (wt%)', padLeft + drawW/2, H - 10);
+        
+        ctx.save();
+        ctx.translate(20, H/2);
+        ctx.rotate(-Math.PI/2);
+        ctx.fillText('Temperature (°C)', 0, 0);
+        ctx.restore();
+
+        // Ticks & Grids
+        ctx.font = '12px Arial';
+        ctx.textAlign = 'center';
+        for(let i=0; i<=6; i++) {
+            ctx.fillText(i, x(i), y(0) + 15);
+            ctx.beginPath(); ctx.moveTo(x(i), y(0)); ctx.lineTo(x(i), y(0)-5); ctx.stroke();
+        }
+        ctx.fillText('6.67', x(6.67), y(0) + 15);
+
+        ctx.textAlign = 'right';
+        for(let t=0; t<=1600; t+=200) {
+            ctx.fillText(t, x(0) - 8, y(t) + 4);
+            ctx.beginPath(); ctx.moveTo(x(0), y(t)); ctx.lineTo(x(0)+5, y(t)); ctx.stroke();
+            // Light Grid
+            if (t > 0) {
+                ctx.beginPath(); ctx.moveTo(x(0), y(t)); ctx.lineTo(x(6.67), y(t)); 
+                ctx.strokeStyle = 'rgba(0,0,0,0.05)'; ctx.stroke();
+            }
+        }
+
+        // --- Simplified Phase Boundaries ---
+        ctx.lineWidth = 1.5;
+        ctx.strokeStyle = '#2980B9'; // Phase line color
+
+        const lines = [
+            // Eutectoid Horizontal (A1)
+            [x(0.022), y(727), x(6.67), y(727)],
+            // Eutectic Horizontal
+            [x(2.14), y(1147), x(6.67), y(1147)],
+            // Peritectic Horizontal
+            [x(0.09), y(1493), x(0.53), y(1493)],
+            // A3 Line
+            [x(0), y(912), x(0.76), y(727)],
+            // Acm Line
+            [x(0.76), y(727), x(2.14), y(1147)],
+            // Austenite Solidus
+            [x(0.17), y(1493), x(2.14), y(1147)],
+            // Liquidus 1
+            [x(0.53), y(1493), x(4.3), y(1147)],
+            // Liquidus 2
+            [x(4.3), y(1147), x(6.67), y(1227)],
+            // Alpha Solvus
+            [x(0.022), y(727), x(0.008), y(0)],
+            // Delta & High Temp lines
+            [x(0), y(1394), x(0.17), y(1493)],
+            [x(0), y(1538), x(0.09), y(1493)],
+            [x(0), y(1538), x(0.53), y(1493)],
+            // Fe3C Vertical boundary
+            [x(6.67), y(1600), x(6.67), y(0)]
+        ];
+
+        ctx.beginPath();
+        lines.forEach(l => {
+            ctx.moveTo(l[0], l[1]);
+            ctx.lineTo(l[2], l[3]);
+        });
+        ctx.stroke();
+
+        // --- Region Labels ---
+        ctx.fillStyle = '#2C3E50';
+        ctx.font = 'italic 16px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText('L', x(4.5), y(1350));
+        ctx.fillText('γ', x(1.0), y(1000));
+        ctx.font = 'italic 14px Arial';
+        ctx.fillText('α', x(0.2), y(650));
+        ctx.fillText('L + γ', x(2.5), y(1300));
+        ctx.fillText('L + Fe₃C', x(5.5), y(1185));
+        ctx.fillText('γ + Fe₃C', x(3.5), y(950));
+        ctx.fillText('α + γ', x(0.4), y(800));
+        ctx.fillText('α + Fe₃C', x(3.0), y(400));
+        ctx.fillText('Fe₃C', x(6.5), y(600));
+
+        // --- Highlight User Coordinate ---
+        if (userC !== null && userT !== null) {
+            const ux = x(userC);
+            const uy = y(userT);
+
+            // Draw connecting dashed lines to axes
+            ctx.beginPath();
+            ctx.setLineDash([5, 5]);
+            ctx.moveTo(x(0), uy); ctx.lineTo(ux, uy); // to Y-axis
+            ctx.moveTo(ux, y(0)); ctx.lineTo(ux, uy); // to X-axis
+            ctx.strokeStyle = '#E74C3C';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+            ctx.setLineDash([]); // Reset dash
+
+            // Draw Point
+            ctx.beginPath();
+            ctx.arc(ux, uy, 6, 0, 2 * Math.PI);
+            ctx.fillStyle = '#E74C3C';
+            ctx.fill();
+            ctx.strokeStyle = '#C0392B';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            // Label Point
+            ctx.fillStyle = '#C0392B';
+            ctx.font = 'bold 13px Arial';
+            ctx.textAlign = 'left';
+            
+            // Adjust label position so it doesn't get clipped
+            let textX = ux + 10;
+            let textY = uy - 10;
+            if (userC > 5.5) textX = ux - 70; // Shift left if near right edge
+            if (userT > 1500) textY = uy + 20; // Shift down if near top edge
+
+            ctx.fillText(`(${userC}%, ${userT}°C)`, textX, textY);
+        }
+    }
+</script>
+
+</body>
+</html>
